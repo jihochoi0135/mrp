@@ -19,3 +19,13 @@ Install with:
 ```bash
 pip install -r requirements.txt
 ```
+
+Run with:
+```bash
+jupyter notebook eda/eda_main.ipynb
+jupyter notebook eda/eda_pitcher_context.ipynb
+```
+
+License
+
+This project is for academic purposes. Data sourced from Baseball Savant is subject to MLB's terms of use.
