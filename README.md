@@ -26,6 +26,8 @@ jupyter notebook eda/eda_main.ipynb
 jupyter notebook eda/eda_pitcher_context.ipynb
 ```
 
+While you are working on Google Colab or Jupyter Notebook online, please upload data/dashboard_read_swing_quality_scores.csv to the web file storage before you run eda_pitcher_context.ipynb.  
+
 License
 
 This project is for academic purposes. Data sourced from Baseball Savant is subject to MLB's terms of use.
