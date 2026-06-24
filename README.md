@@ -15,3 +15,7 @@ RQ3: How can player-level swing-quality profiles be monitored and compared acros
 
 Important note: All analyses use publicly available, summary-level season-aggregate data from Baseball Savant. This is not raw pitch-by-pitch swing trajectory data.
 
+Install with:
+```bash
+pip install -r requirements.txt
+```
