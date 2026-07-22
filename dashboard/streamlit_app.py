@@ -3,6 +3,7 @@ import pandas as pd
 import numpy as np
 import plotly.express as px
 import plotly.graph_objects as go
+from pathlib import Path
 from sklearn.preprocessing import StandardScaler
 from sklearn.decomposition import PCA
 from sklearn.cluster import KMeans
@@ -14,7 +15,6 @@ warnings.filterwarnings("ignore")
 # ─────────────────────────────────────────────────────────────────
 st.set_page_config(
     page_title="Bat-Tracking Swing Quality Dashboard",
-    page_icon="⚾",
     layout="wide",
     initial_sidebar_state="expanded",
 )
@@ -69,7 +69,7 @@ st.markdown("""
 T = {
 "English": {
     # sidebar
-    "title": "⚾ Swing Quality",
+    "title": "Swing Quality",
     "filters": "Filters",
     "min_swings_lbl": "Min. Competitive Swings",
     "side_lbl": "Batter Side",
@@ -80,11 +80,11 @@ T = {
     "topn_lbl": "Top N (charts)",
     "footer": "Data: MLB Statcast · 2025\nExploratory estimates only.",
     # page names
-    "pages": ["📊 Overview","🏆 Player Ranking","👤 Player Profile",
-              "⚡ Power vs Efficiency","🎯 Contact & Expanded LSQ",
-              "🔬 Reliability & Sample Size","🗂 Archetype Explorer","📖 Methodology"],
+    "pages": ["Overview","Player Ranking","Player Profile",
+              "Power vs Efficiency","Contact & Expanded LSQ",
+              "Reliability & Sample Size","Archetype Explorer","Methodology"],
     # ── Overview ──────────────────────────────────────────────────
-    "ov_h": "📊 Overview",
+    "ov_h": "Overview",
     "ov_disc": ("This overview shows the distribution of bat-tracking mechanical quality "
                 "and how reliability varies with sample size. Reliability-adjusted scores "
                 "are used for primary ranking."),
@@ -94,7 +94,7 @@ T = {
     "ov_c2":"Distribution — Competitive Swings",
     "ov_c3":"Mechanical Score vs Reliability",
     "ov_c4":"Top 10 — Reliability-Adjusted Score",
-    "ov_it": "📖 How to Read: Overview",
+    "ov_it": "How to Read: Overview",
     "ov_ip": [
         "<span class='hl'>Score Distribution (left)</span>: Right-skewed is normal. Most players cluster near the mean; elite hitters form a long right tail. Wider spread = more variance in swing mechanics across the league.",
         "<span class='hl'>Sample Size Distribution (right)</span>: The dashed line marks the current minimum-swing filter. Players left of this line are excluded. This prevents small-sample outliers from inflating ranks.",
@@ -102,11 +102,11 @@ T = {
         "<span class='hl'>Key rule</span>: Always compare Shrunk scores, not Raw scores. The Shrunk score accounts for sample size; Raw scores can be artificially inflated.",
     ],
     # ── Ranking ───────────────────────────────────────────────────
-    "rk_h": "🏆 Player Ranking",
+    "rk_h": "Player Ranking",
     "rk_bar": "Top {n} Players — {label}",
     "rk_tbl": "Full Ranking Table",
-    "rk_dl": "⬇ Download Rankings CSV",
-    "rk_it": "📖 How to Read: Player Ranking",
+    "rk_dl": "Download Rankings CSV",
+    "rk_it": "How to Read: Player Ranking",
     "rk_ip": [
         "<span class='hl'>Expanded LSQ (default)</span>: Blends bat-tracking mechanics with contact outcomes (xwOBA, Barrel%, Hard Hit%). Switch to Mechanical-only in the sidebar to isolate pure bat-tracking signal.",
         "<span class='hl'>Shrunk vs Raw</span>: Always rank by Shrunk scores. Players with fewer swings are pulled toward the mean — Raw scores can look misleadingly high for small samples.",
@@ -115,14 +115,14 @@ T = {
         "<span class='hl'>Side filter</span>: Percentiles are calculated across all hitters. Use the side filter when comparing LHH vs RHH separately.",
     ],
     # ── Profile ───────────────────────────────────────────────────
-    "pf_h": "👤 Player Profile",
+    "pf_h": "Player Profile",
     "pf_search": "Search Player",
     "pf_k1":"Avg Bat Speed","pf_k2":"Ideal Attack Angle Rate",
     "pf_k3":"Competitive Swings","pf_k4":"Mech Score Percentile",
     "pf_k5":"Reliability","pf_k6":"Exp LSQ Percentile",
     "pf_tbl":"Full Profile","pf_radar":"Percentile Radar","pf_bkdn":"Score Breakdown",
     "pf_median_lbl": "League Median",
-    "pf_it": "📖 How to Read: Player Profile",
+    "pf_it": "How to Read: Player Profile",
     "pf_ip": [
         "<span class='hl'>Radar Chart</span>: Each axis = percentile (0–100) vs all qualified players. Larger shaded area = better overall profile. Dashed circle = league median (50th pctile).",
         "<span class='hl'>Raw Swing Power axis</span>: Directly tied to avg bat speed. Higher = more potential exit velocity, but power alone doesn't guarantee quality contact.",
@@ -132,25 +132,25 @@ T = {
         "<span class='hl'>xwOBA / Barrel / HardHit axes</span>: Outcome metrics. Strong mechanics diverging from weak outcomes may indicate pitch-selection or timing issues.",
     ],
     # ── Power vs Efficiency ───────────────────────────────────────
-    "pe_h": "⚡ Raw Swing Power vs Swing Path Efficiency",
+    "pe_h": "Raw Swing Power vs Swing Path Efficiency",
     "pe_disc": ("Each dot = one player. X-axis = power (bat speed z-score), "
                 "Y-axis = efficiency (ideal attack angle rate z-score). "
                 "Dot size = sample size. Color = Mechanical Percentile."),
     "pe_scatter": "Power vs Efficiency Quadrant",
     "pe_qsum": "Quadrant Summary",
     "pe_qtop": "Top 5 per Quadrant",
-    "pe_q": ["⚡ High Power + High Efficiency","💪 High Power + Low Efficiency",
-             "🎯 Low Power + High Efficiency","📉 Low Power + Low Efficiency"],
-    "pe_it": "📖 How to Read: Power vs Efficiency",
+    "pe_q": ["High Power + High Efficiency","High Power + Low Efficiency",
+             "Low Power + High Efficiency","Low Power + Low Efficiency"],
+    "pe_it": "How to Read: Power vs Efficiency",
     "pe_ip": [
-        "<span class='hl'>⚡ High Power + High Efficiency (top-right)</span>: Best mechanical profile. High bat speed AND consistent swing path. These hitters threaten for both average and power.",
-        "<span class='hl'>💪 High Power + Low Efficiency (bottom-right)</span>: Raw power hitters with inconsistent swing path. High K% risk, but when they connect, they hit it hard. Swing path adjustment has high upside.",
-        "<span class='hl'>🎯 Low Power + High Efficiency (top-left)</span>: Contact-oriented hitters. Consistent path through the zone but limited bat speed caps the ceiling. Classic Tony Gwynn archetype.",
-        "<span class='hl'>📉 Low Power + Low Efficiency (bottom-left)</span>: Weaker profile on both dimensions. May still produce through pitch selection or BABIP, but bat-tracking signal is unfavorable.",
+        "<span class='hl'>High Power + High Efficiency (top-right)</span>: Best mechanical profile. High bat speed AND consistent swing path. These hitters threaten for both average and power.",
+        "<span class='hl'>High Power + Low Efficiency (bottom-right)</span>: Raw power hitters with inconsistent swing path. High K% risk, but when they connect, they hit it hard. Swing path adjustment has high upside.",
+        "<span class='hl'>Low Power + High Efficiency (top-left)</span>: Contact-oriented hitters. Consistent path through the zone but limited bat speed caps the ceiling. Classic Tony Gwynn archetype.",
+        "<span class='hl'>Low Power + Low Efficiency (bottom-left)</span>: Weaker profile on both dimensions. May still produce through pitch selection or BABIP, but bat-tracking signal is unfavorable.",
         "<span class='hl'>Dot size</span>: Larger = more competitive swings = more reliable estimate. Be cautious of small dots near the extremes — those estimates are more uncertain.",
     ],
     # ── Contact & LSQ ─────────────────────────────────────────────
-    "cl_h": "🎯 Contact Efficiency & Expanded LSQ",
+    "cl_h": "Contact Efficiency & Expanded LSQ",
     "cl_disc": ("Evaluates whether bat-tracking mechanics align with expected offensive value "
                 "(xwOBA, Barrel%, Hard Hit%). Alignment validates the mechanical score; "
                 "divergence reveals analytically interesting outliers."),
@@ -158,7 +158,7 @@ T = {
     "cl_c2":"Mech Score vs Barrel Rate",
     "cl_c3":"Mechanical vs Expanded LSQ — Alignment / Divergence",
     "cl_c4":"Expanded LSQ Ranking — Top {n}",
-    "cl_it": "📖 How to Read: Contact & Expanded LSQ",
+    "cl_it": "How to Read: Contact & Expanded LSQ",
     "cl_ip": [
         "<span class='hl'>Mech vs xwOBA</span>: Points above the trend line = better xwOBA than mechanics predict (pitch-selection edge). Points below = mechanics not translating to outcomes (timing, contact location issues).",
         "<span class='hl'>Mech vs Barrel Rate</span>: Barrel rate is a strong proxy for hard contact quality. High Mech + low barrel may signal swing-plane issues not fully captured by attack angle alone.",
@@ -167,14 +167,14 @@ T = {
         "<span class='hl'>Key insight</span>: Mechanical score is a leading indicator. Outcome stats (xwOBA, Barrel%) are partially dependent on pitch mix and defense. Use both for the fullest picture.",
     ],
     # ── Reliability ───────────────────────────────────────────────
-    "rl_h": "🔬 Reliability & Sample Size Analysis",
+    "rl_h": "Reliability & Sample Size Analysis",
     "rl_disc": ("Players with small competitive-swing samples are shrunk toward the population mean. "
                 "Formula: Reliability = 1 − exp(−swings / 100). "
                 "This page shows how shrinkage works and flags high-raw / low-reliability outliers."),
     "rl_c1":"Reliability Curve — Swings vs Reliability",
     "rl_c2":"Shrinkage Effect — Raw vs Shrunk Score",
-    "rl_c3":"⚠ Small Sample + High Raw Score — Caution Candidates",
-    "rl_it": "📖 How to Read: Reliability & Sample Size",
+    "rl_c3":"Small Sample + High Raw Score — Caution Candidates",
+    "rl_it": "How to Read: Reliability & Sample Size",
     "rl_ip": [
         "<span class='hl'>Reliability Curve</span>: Dotted line = theoretical formula 1−exp(−n/100). At n=100, reliability ≈ 0.63. At n=300, reliability ≈ 0.95. Points above curve = more consistent than expected; below = noisier.",
         "<span class='hl'>Shrinkage Scatter</span>: Points above the y=x diagonal were pulled down toward 0 (the mean). Further from diagonal = more shrinkage = less certain estimate. These players need more swings for a stable rank.",
@@ -183,7 +183,7 @@ T = {
         "<span class='hl'>Shrinkage Diff column</span>: Raw − Shrunk gap. Diff > 0.5 means the rank could shift substantially with more data.",
     ],
     # ── Archetype ─────────────────────────────────────────────────
-    "ar_h": "🗂 Archetype Explorer",
+    "ar_h": "Archetype Explorer",
     "ar_disc": ("K-Means clustering on standardized mechanical metrics + contact outcomes. "
                 "PCA reduces to 2D for visualization. Archetypes are exploratory groupings, "
                 "not definitive skill classifications."),
@@ -191,24 +191,24 @@ T = {
     "ar_c1":"PCA Cluster Visualization",
     "ar_c2":"Cluster Mean Profiles",
     "ar_c3":"Top Players per Cluster",
-    "ar_arch": ["⚡ Power-Efficient","💪 Raw Power","🎯 Contact-Efficient",
-                "📉 Low Mechanical","📊 Mixed / Average"],
-    "ar_it": "📖 How to Read: Archetype Explorer",
+    "ar_arch": ["Power-Efficient","Raw Power","Contact-Efficient",
+                "Low Mechanical","Mixed / Average"],
+    "ar_it": "How to Read: Archetype Explorer",
     "ar_ip": [
         "<span class='hl'>PCA Plot</span>: PC1 and PC2 are linear combinations of all 6 input features. Higher % variance explained = better 2D representation of the original data. 70%+ is generally good.",
         "<span class='hl'>PC1 (horizontal)</span>: Typically represents overall swing quality — players further right tend to have better composite scores on both power and efficiency.",
         "<span class='hl'>PC2 (vertical)</span>: Often captures the power-vs-efficiency tradeoff — players at opposite ends of PC2 have different power/contact mixes.",
         "<span class='hl'>Cluster labels</span>: Auto-assigned based on mean feature values per cluster. Use as rough archetypes, not definitive skill grades.",
         "<span class='hl'>Adjust k</span>: k=3 for broad groups, k=5–7 for finer distinctions. If clusters heavily overlap in the PCA plot, fewer groups may be more appropriate.",
-        "<span class='hl'>Symbol (●/✕)</span>: Circle = RHH, X = LHH. Archetype membership should be handedness-agnostic; systematic L/R differences are analytically interesting when observed.",
+        "<span class='hl'>Symbol (circle/X)</span>: Circle = RHH, X = LHH. Archetype membership should be handedness-agnostic; systematic L/R differences are analytically interesting when observed.",
     ],
     # ── Methodology ───────────────────────────────────────────────
-    "me_h": "📖 Methodology & Interpretation",
+    "me_h": "Methodology & Interpretation",
     "me_disc": ("This score is an <strong>exploratory estimate</strong> of swing-quality profile based on "
                 "publicly available bat-tracking and contact-quality metrics. It is <strong>not</strong> "
                 "a direct measure of true hitting talent. Reliability-adjusted scores are used for ranking."),
-    "me_s1":"📐 Score Definitions","me_s2":"📦 Data Source & Variables",
-    "me_s3":"⚠ Interpretation Limits","me_s4":"🚀 Next Steps","me_s5":"📚 Key References",
+    "me_s1":"Score Definitions","me_s2":"Data Source & Variables",
+    "me_s3":"Interpretation Limits","me_s4":"Next Steps","me_s5":"Key References",
     "me_meta": {"Data Source":"MLB Statcast / Baseball Savant (2025)",
                 "Minimum Qualified":"≥ 50 competitive swings (dashboard default: 100)"},
     "me_lim": [
@@ -245,7 +245,7 @@ T = {
 
 "한국어": {
     # sidebar
-    "title": "⚾ 스윙 퀄리티",
+    "title": "스윙 퀄리티",
     "filters": "필터",
     "min_swings_lbl": "최소 경쟁 스윙 수",
     "side_lbl": "타격 방향",
@@ -256,11 +256,11 @@ T = {
     "topn_lbl": "Top N (차트)",
     "footer": "데이터: MLB Statcast · 2025\n탐색적 추정치 전용.",
     # page names
-    "pages": ["📊 개요","🏆 선수 랭킹","👤 선수 프로필",
-              "⚡ 파워 vs 효율","🎯 컨택 & Expanded LSQ",
-              "🔬 신뢰도 & 샘플 크기","🗂 아키타입 탐색","📖 방법론"],
+    "pages": ["개요","선수 랭킹","선수 프로필",
+              "파워 vs 효율","컨택 & Expanded LSQ",
+              "신뢰도 & 샘플 크기","아키타입 탐색","방법론"],
     # ── Overview ──────────────────────────────────────────────────
-    "ov_h": "📊 개요",
+    "ov_h": "개요",
     "ov_disc": ("배트 트래킹 메카니컬 퀄리티의 전체 분포와 샘플 크기에 따른 신뢰도 변화를 보여줍니다. "
                 "경쟁 스윙이 적은 선수는 추정치가 불안정할 수 있으므로 신뢰도 조정 점수를 기본 랭킹에 사용합니다."),
     "ov_k1":"총 선수 수","ov_k2":"분석 기간","ov_k3":"중앙값 경쟁 스윙",
@@ -269,7 +269,7 @@ T = {
     "ov_c2":"분포 — 경쟁 스윙 수 (샘플 크기)",
     "ov_c3":"메카니컬 점수 vs 신뢰도",
     "ov_c4":"Top 10 — 신뢰도 조정 점수",
-    "ov_it": "📖 개요 해석 방법",
+    "ov_it": "개요 해석 방법",
     "ov_ip": [
         "<span class='hl'>점수 분포 (왼쪽)</span>: 오른쪽 꼬리가 긴 분포가 정상입니다. 대부분의 선수는 평균 근처에 모이고, 극소수의 엘리트 타자만 오른쪽 꼬리를 형성합니다. 분포가 넓을수록 리그 내 메카닉 편차가 크다는 의미입니다.",
         "<span class='hl'>경쟁 스윙 분포 (오른쪽)</span>: 점선은 현재 최소 스윙 필터입니다. 이 선 왼쪽 선수들은 랭킹에서 제외됩니다. 소수 스윙의 극단값이 랭킹을 왜곡하지 않도록 설계된 필터입니다.",
@@ -277,11 +277,11 @@ T = {
         "<span class='hl'>핵심 원칙</span>: 선수 비교 시 항상 Raw 점수가 아닌 Shrunk(수축 조정) 점수를 사용하세요. Shrunk 점수는 샘플 크기를 반영합니다.",
     ],
     # ── Ranking ───────────────────────────────────────────────────
-    "rk_h": "🏆 선수 랭킹",
+    "rk_h": "선수 랭킹",
     "rk_bar": "Top {n} 선수 — {label}",
     "rk_tbl": "전체 랭킹 테이블",
-    "rk_dl": "⬇ 랭킹 CSV 다운로드",
-    "rk_it": "📖 랭킹 해석 방법",
+    "rk_dl": "랭킹 CSV 다운로드",
+    "rk_it": "랭킹 해석 방법",
     "rk_ip": [
         "<span class='hl'>Expanded LSQ (기본값)</span>: 배트 트래킹 메카닉과 컨택 결과물(xwOBA, Barrel%, Hard Hit%)을 결합합니다. 사이드바에서 Mechanical 전용으로 전환해 순수 배트 트래킹 신호만 볼 수도 있습니다.",
         "<span class='hl'>Shrunk vs Raw</span>: 항상 Shrunk 점수로 랭킹을 비교하세요. 스윙이 적은 선수는 평균 방향으로 당겨지므로 Raw 점수가 과장되어 보일 수 있습니다.",
@@ -290,14 +290,14 @@ T = {
         "<span class='hl'>타격 방향 필터</span>: 백분위는 전체 타자 기준으로 계산됩니다. 좌/우타를 따로 분석할 때 Side 필터를 활용하세요.",
     ],
     # ── Profile ───────────────────────────────────────────────────
-    "pf_h": "👤 선수 프로필",
+    "pf_h": "선수 프로필",
     "pf_search": "선수 검색",
     "pf_k1":"평균 배트 스피드","pf_k2":"이상적 어택 앵글 비율",
     "pf_k3":"경쟁 스윙 수","pf_k4":"메카니컬 점수 백분위",
     "pf_k5":"신뢰도","pf_k6":"Expanded LSQ 백분위",
     "pf_tbl":"전체 프로필","pf_radar":"백분위 레이더 차트","pf_bkdn":"점수 분해",
     "pf_median_lbl": "리그 중앙값",
-    "pf_it": "📖 선수 프로필 해석 방법",
+    "pf_it": "선수 프로필 해석 방법",
     "pf_ip": [
         "<span class='hl'>레이더 차트</span>: 각 축은 전체 선수 대비 백분위(0–100)입니다. 색칠된 영역이 클수록 전반적으로 우수한 프로필입니다. 점선은 리그 중앙값(50분위)입니다.",
         "<span class='hl'>Raw Swing Power 축</span>: 평균 배트 스피드에 직접 연동됩니다. 높을수록 잠재적 Exit Velocity가 크지만, 파워만으로 품질 컨택이 보장되지는 않습니다.",
@@ -307,25 +307,25 @@ T = {
         "<span class='hl'>xwOBA / Barrel / HardHit 축</span>: 결과물 기반 지표입니다. 메카닉이 좋은데 결과물이 낮으면 타이밍·선구안·운(BABIP)의 영향을 의심할 수 있습니다.",
     ],
     # ── Power vs Efficiency ───────────────────────────────────────
-    "pe_h": "⚡ Raw 파워 vs 스윙 경로 효율",
+    "pe_h": "Raw 파워 vs 스윙 경로 효율",
     "pe_disc": ("각 점 = 선수 한 명. X축 = 파워(배트 스피드 z-점수), "
                 "Y축 = 효율(이상적 어택 앵글 비율 z-점수). "
                 "점 크기 = 경쟁 스윙 수. 색상 = 메카니컬 백분위."),
     "pe_scatter": "파워 vs 효율 사분면 산점도",
     "pe_qsum": "사분면 요약",
     "pe_qtop": "사분면별 Top 5",
-    "pe_q": ["⚡ 고파워 + 고효율","💪 고파워 + 저효율",
-             "🎯 저파워 + 고효율","📉 저파워 + 저효율"],
-    "pe_it": "📖 파워 vs 효율 차트 해석 방법",
+    "pe_q": ["고파워 + 고효율","고파워 + 저효율",
+             "저파워 + 고효율","저파워 + 저효율"],
+    "pe_it": "파워 vs 효율 차트 해석 방법",
     "pe_ip": [
-        "<span class='hl'>⚡ 고파워 + 고효율 (우상단)</span>: 가장 이상적인 메카니컬 프로필. 배트 스피드가 높고 스윙 경로도 일관되어 타율과 장타력 모두 위협적입니다.",
-        "<span class='hl'>💪 고파워 + 저효율 (우하단)</span>: 파워는 있지만 스윙 경로가 불안정한 선수입니다. 삼진이 많지만 맞으면 강하게 치는 유형. 스윙 패스 조정 시 상승 여지가 큽니다.",
-        "<span class='hl'>🎯 저파워 + 고효율 (좌상단)</span>: 컨택 중심 타자. 일관된 경로로 타율은 높지만 배트 스피드의 한계로 장타력이 제한됩니다. Tony Gwynn형 아키타입.",
-        "<span class='hl'>📉 저파워 + 저효율 (좌하단)</span>: 두 차원 모두 약한 선수. 선구안이나 운(BABIP)으로 성적을 낼 수 있지만 배트 트래킹 신호는 불리합니다.",
+        "<span class='hl'>고파워 + 고효율 (우상단)</span>: 가장 이상적인 메카니컬 프로필. 배트 스피드가 높고 스윙 경로도 일관되어 타율과 장타력 모두 위협적입니다.",
+        "<span class='hl'>고파워 + 저효율 (우하단)</span>: 파워는 있지만 스윙 경로가 불안정한 선수입니다. 삼진이 많지만 맞으면 강하게 치는 유형. 스윙 패스 조정 시 상승 여지가 큽니다.",
+        "<span class='hl'>저파워 + 고효율 (좌상단)</span>: 컨택 중심 타자. 일관된 경로로 타율은 높지만 배트 스피드의 한계로 장타력이 제한됩니다. Tony Gwynn형 아키타입.",
+        "<span class='hl'>저파워 + 저효율 (좌하단)</span>: 두 차원 모두 약한 선수. 선구안이나 운(BABIP)으로 성적을 낼 수 있지만 배트 트래킹 신호는 불리합니다.",
         "<span class='hl'>점 크기</span>: 클수록 경쟁 스윙이 많아 추정치가 더 신뢰할 수 있습니다. 극단부의 작은 점은 주의가 필요합니다.",
     ],
     # ── Contact & LSQ ─────────────────────────────────────────────
-    "cl_h": "🎯 컨택 효율 & Expanded LSQ",
+    "cl_h": "컨택 효율 & Expanded LSQ",
     "cl_disc": ("배트 트래킹 메카니컬 퀄리티가 기대 공격 가치(xwOBA, Barrel%, Hard Hit%)와 "
                 "얼마나 일치하는지 평가합니다. 강한 일치는 메카니컬 점수의 유효성을 지지하며, "
                 "괴리는 흥미로운 아웃라이어를 드러냅니다."),
@@ -333,7 +333,7 @@ T = {
     "cl_c2":"메카니컬 점수 vs Barrel Rate",
     "cl_c3":"메카니컬 vs Expanded LSQ — 일치 / 괴리 분석",
     "cl_c4":"Expanded LSQ 랭킹 — Top {n}",
-    "cl_it": "📖 컨택 & Expanded LSQ 해석 방법",
+    "cl_it": "컨택 & Expanded LSQ 해석 방법",
     "cl_ip": [
         "<span class='hl'>메카니컬 점수 vs xwOBA</span>: 추세선 위 = 메카닉 예측보다 xwOBA가 높음(선구안 우위 가능성). 추세선 아래 = 좋은 메카닉이 결과물로 이어지지 않음(타이밍·구종 선택 문제 가능).",
         "<span class='hl'>메카니컬 점수 vs Barrel Rate</span>: Barrel Rate는 강한 컨택 품질의 대리 지표입니다. 메카니컬 점수 높고 Barrel Rate 낮다면 어택 앵글만으로 포착되지 않는 스윙 플레인 문제가 있을 수 있습니다.",
@@ -342,14 +342,14 @@ T = {
         "<span class='hl'>핵심 시사점</span>: 메카니컬 점수는 선행 지표이고, 결과물 지표는 피칭 전략과 수비에 영향을 받습니다. 두 가지를 함께 보는 것이 가장 완전한 분석입니다.",
     ],
     # ── Reliability ───────────────────────────────────────────────
-    "rl_h": "🔬 신뢰도 & 샘플 크기 분석",
+    "rl_h": "신뢰도 & 샘플 크기 분석",
     "rl_disc": ("경쟁 스윙 샘플이 적은 선수는 모집단 평균 방향으로 수축(shrink)됩니다. "
                 "공식: Reliability = 1 − exp(−스윙 수 / 100). "
                 "이 페이지는 수축 메커니즘과 주의 대상 선수를 보여줍니다."),
     "rl_c1":"신뢰도 곡선 — 경쟁 스윙 vs 신뢰도",
     "rl_c2":"수축 효과 — Raw vs Shrunk 점수",
-    "rl_c3":"⚠ 소샘플 + 높은 Raw 점수 — 주의 대상 선수",
-    "rl_it": "📖 신뢰도 차트 해석 방법",
+    "rl_c3":"소샘플 + 높은 Raw 점수 — 주의 대상 선수",
+    "rl_it": "신뢰도 차트 해석 방법",
     "rl_ip": [
         "<span class='hl'>신뢰도 곡선</span>: 점선이 이론적 공식(1−exp(−n/100))입니다. n=100이면 신뢰도 ≈ 0.63, n=300이면 ≈ 0.95. 곡선 위 점 = 예상보다 일관된 결과, 곡선 아래 = 더 많은 노이즈.",
         "<span class='hl'>수축 효과 산점도</span>: y=x 대각선 위의 점은 Raw 점수가 0(평균) 방향으로 당겨진 것입니다. 대각선에서 멀수록 더 많이 수축된 선수이며, 안정적인 순위를 위해 더 많은 스윙이 필요합니다.",
@@ -358,30 +358,30 @@ T = {
         "<span class='hl'>Shrinkage Diff 컬럼</span>: Raw − Shrunk 차이. 0.5 이상이면 더 많은 데이터가 쌓였을 때 순위가 크게 변동할 수 있습니다.",
     ],
     # ── Archetype ─────────────────────────────────────────────────
-    "ar_h": "🗂 아키타입 탐색기",
+    "ar_h": "아키타입 탐색기",
     "ar_disc": ("메카니컬 지표와 컨택 결과물을 표준화 후 K-Means 클러스터링 적용. "
                 "PCA로 2차원 축약해 시각화합니다. 탐색적 그룹화이며 최종 분류가 아닙니다."),
     "ar_k": "클러스터 수 (k)",
     "ar_c1":"PCA 클러스터 시각화",
     "ar_c2":"클러스터별 평균 프로필",
     "ar_c3":"클러스터별 상위 선수",
-    "ar_arch": ["⚡ 파워-효율형","💪 순수 파워형","🎯 컨택 효율형","📉 낮은 메카닉형","📊 혼합/평균형"],
-    "ar_it": "📖 아키타입 탐색기 해석 방법",
+    "ar_arch": ["파워-효율형","순수 파워형","컨택 효율형","낮은 메카닉형","혼합/평균형"],
+    "ar_it": "아키타입 탐색기 해석 방법",
     "ar_ip": [
         "<span class='hl'>PCA 산점도</span>: PC1과 PC2는 6개 변수의 선형 결합입니다. 설명 분산 비율이 높을수록 이 2D 시각화가 원래 데이터를 더 잘 대표합니다. 일반적으로 70% 이상이면 양호합니다.",
         "<span class='hl'>PC1 (수평축)</span>: 보통 전반적인 스윙 퀄리티를 대표합니다. 오른쪽 선수일수록 파워와 효율 모두에서 높은 복합 점수를 가지는 경향이 있습니다.",
         "<span class='hl'>PC2 (수직축)</span>: 종종 파워-컨택 효율 트레이드오프를 포착합니다. PC2 상단과 하단 선수는 서로 다른 파워/컨택 조합을 가집니다.",
         "<span class='hl'>클러스터 레이블</span>: 각 클러스터 내 평균 지표 기준으로 자동 부여됩니다. 대략적인 아키타입으로만 활용하세요.",
         "<span class='hl'>k 조정</span>: k=3은 넓은 분류, k=5–7은 세밀한 구분에 적합합니다. PCA 차트에서 클러스터가 많이 겹치면 k를 줄이는 것이 좋습니다.",
-        "<span class='hl'>기호</span>: ●=우타, ✕=좌타. 좌/우타 간 체계적 차이가 발견되면 분석적으로 흥미로운 패턴입니다.",
+        "<span class='hl'>기호</span>: 원=우타, X=좌타. 좌/우타 간 체계적 차이가 발견되면 분석적으로 흥미로운 패턴입니다.",
     ],
     # ── Methodology ───────────────────────────────────────────────
-    "me_h": "📖 방법론 & 해석 가이드",
+    "me_h": "방법론 & 해석 가이드",
     "me_disc": ("이 점수는 공개 배트 트래킹 및 컨택 품질 지표 기반 <strong>탐색적 추정치</strong>입니다. "
                 "실제 타격 재능을 직접 측정한 값이 <strong>아닙니다</strong>. "
                 "신뢰도 조정 점수를 기본 랭킹에 사용합니다."),
-    "me_s1":"📐 점수 정의","me_s2":"📦 데이터 소스 & 변수",
-    "me_s3":"⚠ 해석 주의사항","me_s4":"🚀 향후 개선 방향","me_s5":"📚 주요 참고문헌",
+    "me_s1":"점수 정의","me_s2":"데이터 소스 & 변수",
+    "me_s3":"해석 주의사항","me_s4":"향후 개선 방향","me_s5":"주요 참고문헌",
     "me_meta": {"데이터 소스":"MLB Statcast / Baseball Savant (2025)",
                 "최소 기준":"경쟁 스윙 ≥ 50회 (대시보드 기본값: 100회)"},
     "me_lim": [
@@ -449,13 +449,22 @@ PL = dict(
 # ─────────────────────────────────────────────────────────────────
 # DATA
 # ─────────────────────────────────────────────────────────────────
-# NOTE (Phase 4 bridge, MRP Section 4.2/5.3): `revised_mechanical_swing_quality_scores.csv`
+# NOTE (Phase 4 bridge, MRP Section III.2/IV.3): `revised_mechanical_swing_quality_scores.csv`
 # ("mech_df") was loaded here in the original prototype but never referenced anywhere
 # in the app below - dead code, removed. Only `main_df` and `comp_df` are actually used.
+#
+# NOTE (path fix): Streamlit Community Cloud always runs `streamlit run` from the
+# REPOSITORY ROOT, not from the folder containing this script. Since this script lives
+# at `dashboard/streamlit_app.py` and the data lives at `dashboard/data/`, a plain
+# relative path like "data/xxx.csv" resolves against the repo root and fails with
+# FileNotFoundError. Resolving paths relative to this script's own file location
+# (via __file__) makes the app work identically regardless of where it is launched from.
+APP_DIR = Path(__file__).parent
+
 @st.cache_data
 def load_data():
-    main = pd.read_csv("data/dashboard_ready_swing_quality_scores.csv")
-    comp = pd.read_csv("data/composite_latent_swing_quality_scores.csv")
+    main = pd.read_csv(APP_DIR / "data" / "dashboard_ready_swing_quality_scores.csv")
+    comp = pd.read_csv(APP_DIR / "data" / "composite_latent_swing_quality_scores.csv")
     return main, comp
 
 main_df, comp_df = load_data()
@@ -467,7 +476,7 @@ with st.sidebar:
     # ── language selector (top) ────────────────────────────────
     lang = st.radio("", ["English","한국어"], horizontal=True,
                     label_visibility="collapsed")
-    badge = "🇺🇸 English" if lang == "English" else "🇰🇷 한국어"
+    badge = "English" if lang == "English" else "한국어"
     st.markdown(f"<div class='lang-tag'>{badge}</div>", unsafe_allow_html=True)
     tx = T[lang]
     st.markdown(f"## {tx['title']}")
@@ -504,8 +513,8 @@ def disc(text):
     st.markdown(f"<div class='disclaimer'>{text}</div>", unsafe_allow_html=True)
 
 def interpret(title_key, items_key):
-    label = "📖 How to Read" if lang=="English" else "📖 해석 방법"
-    with st.expander(f"{label}: {tx[title_key].replace('📖 ','').strip()}", expanded=False):
+    label = "How to Read" if lang=="English" else "해석 방법"
+    with st.expander(f"{label}: {tx[title_key]}", expanded=False):
         rows = "".join(f"<li>{i}</li>" for i in tx[items_key])
         st.markdown(f"<div class='interpret-box'><ul>{rows}</ul></div>",
                     unsafe_allow_html=True)
@@ -533,7 +542,7 @@ page_en  = T["English"]["pages"][page_idx]
 # ═══════════════════════════════════════════════════════════════
 # P1  OVERVIEW
 # ═══════════════════════════════════════════════════════════════
-if page_en == "📊 Overview":
+if page_en == "Overview":
     st.markdown(f"## {tx['ov_h']}")
     disc(tx["ov_disc"])
     interpret("ov_it","ov_ip")
@@ -604,7 +613,7 @@ if page_en == "📊 Overview":
 # ═══════════════════════════════════════════════════════════════
 # P2  RANKING
 # ═══════════════════════════════════════════════════════════════
-elif page_en == "🏆 Player Ranking":
+elif page_en == "Player Ranking":
     st.markdown(f"## {tx['rk_h']}")
     interpret("rk_it","rk_ip")
 
@@ -648,7 +657,7 @@ elif page_en == "🏆 Player Ranking":
 # ═══════════════════════════════════════════════════════════════
 # P3  PLAYER PROFILE
 # ═══════════════════════════════════════════════════════════════
-elif page_en == "👤 Player Profile":
+elif page_en == "Player Profile":
     st.markdown(f"## {tx['pf_h']}")
     interpret("pf_it","pf_ip")
 
@@ -759,7 +768,7 @@ elif page_en == "👤 Player Profile":
 # ═══════════════════════════════════════════════════════════════
 # P4  POWER vs EFFICIENCY
 # ═══════════════════════════════════════════════════════════════
-elif page_en == "⚡ Power vs Efficiency":
+elif page_en == "Power vs Efficiency":
     st.markdown(f"## {tx['pe_h']}")
     disc(tx["pe_disc"])
     interpret("pe_it","pe_ip")
@@ -819,7 +828,7 @@ elif page_en == "⚡ Power vs Efficiency":
 # ═══════════════════════════════════════════════════════════════
 # P5  CONTACT & EXPANDED LSQ
 # ═══════════════════════════════════════════════════════════════
-elif page_en == "🎯 Contact & Expanded LSQ":
+elif page_en == "Contact & Expanded LSQ":
     st.markdown(f"## {tx['cl_h']}")
     disc(tx["cl_disc"])
     interpret("cl_it","cl_ip")
@@ -876,7 +885,7 @@ elif page_en == "🎯 Contact & Expanded LSQ":
 # ═══════════════════════════════════════════════════════════════
 # P6  RELIABILITY
 # ═══════════════════════════════════════════════════════════════
-elif page_en == "🔬 Reliability & Sample Size":
+elif page_en == "Reliability & Sample Size":
     st.markdown(f"## {tx['rl_h']}")
     disc(tx["rl_disc"])
     interpret("rl_it","rl_ip")
@@ -937,7 +946,7 @@ elif page_en == "🔬 Reliability & Sample Size":
 # ═══════════════════════════════════════════════════════════════
 # P7  ARCHETYPE
 # ═══════════════════════════════════════════════════════════════
-elif page_en == "🗂 Archetype Explorer":
+elif page_en == "Archetype Explorer":
     st.markdown(f"## {tx['ar_h']}")
     disc(tx["ar_disc"])
     interpret("ar_it","ar_ip")
@@ -1007,7 +1016,7 @@ elif page_en == "🗂 Archetype Explorer":
 # ═══════════════════════════════════════════════════════════════
 # P8  METHODOLOGY
 # ═══════════════════════════════════════════════════════════════
-elif page_en == "📖 Methodology":
+elif page_en == "Methodology":
     st.markdown(f"## {tx['me_h']}")
     st.markdown(f"<div class='disclaimer'>{tx['me_disc']}</div>",
                 unsafe_allow_html=True)
@@ -1077,7 +1086,7 @@ elif page_en == "📖 Methodology":
 
     st.divider()
     st.markdown(f"### {tx['me_s5']}")
-    # NOTE (Phase 4 bridge, MRP Section 4.2/5.3): replaced the original reference list,
+    # NOTE (Phase 4 bridge, MRP Section III.2/IV.3): replaced the original reference list,
     # which did not match the MRP's confirmed 11-source Literature Review, with the
     # subset that directly justifies this dashboard's own formulas and design choices.
     refs = [("Powers & Yurko (2026)","Swinging, Fast and Slow: Bat-Tracking Data and the Evaluation of Hitters","arXiv:2507.01238"),
